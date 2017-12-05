@@ -54,11 +54,11 @@ add "&raw" to the end of the URL within a browser.
       width: 100%;
     }
   </style>
-  <link href="//cdn.jsdelivr.net/npm/graphiql@${GRAPHIQL_VERSION}/graphiql.css" rel="stylesheet" />
-  <script src="//cdn.jsdelivr.net/fetch/0.9.0/fetch.min.js"></script>
-  <script src="//cdn.jsdelivr.net/react/15.4.2/react.min.js"></script>
-  <script src="//cdn.jsdelivr.net/react/15.4.2/react-dom.min.js"></script>
-  <script src="//cdn.jsdelivr.net/npm/graphiql@${GRAPHIQL_VERSION}/graphiql.min.js"></script>
+  <link href="//m.qunar.com/zhuanti/graphiql-0.11.3.css" rel="stylesheet" />
+  <script src="//m.qunar.com/zhuanti/fetch-0.9.0.min.js"></script>
+  <script src="//m.qunar.com/zhuanti/react-15.4.2.min.js"></script>
+  <script src="//m.qunar.com/zhuanti/react-dom-15.4.2.min.js"></script>
+  <script src="//m.qunar.com/zhuanti/graphiql-0.11.3.min.js"></script>
 </head>
 <body>
   <script>

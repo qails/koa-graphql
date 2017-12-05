@@ -5,6 +5,8 @@
 [![Test coverage][coveralls-image]][coveralls-url]
 [![Dependency Status][david_img]][david_site]
 
+使用公司内网css和js代替cdn.jsdelivr.net的静态资源，加载快GraphiQL的页面加载速度。
+
 Create a GraphQL HTTP server with [Koa](http://koajs.com/).
 
 Port from [express-graphql](https://github.com/graphql/express-graphql)

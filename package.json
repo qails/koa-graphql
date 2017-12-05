@@ -1,5 +1,5 @@
 {
-  "name": "koa-graphql",
+  "name": "koa-graphql-fix",
   "version": "0.7.3",
   "description": "Production ready GraphQL Koa middleware.",
   "contributors": [
