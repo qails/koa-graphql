@@ -1,7 +1,8 @@
-/* @flow */
+/* @flow strict */
 
 import {
   Source,
+  validateSchema,
   parse,
   validate,
   execute,
@@ -14,7 +15,13 @@ import httpError from 'http-errors';
 
 import { renderGraphiQL } from './renderGraphiQL';
 
-import type { GraphQLError, GraphQLSchema } from 'graphql';
+import type {
+  GraphQLError,
+  GraphQLSchema,
+  GraphQLFieldResolver,
+  ValidationContext,
+  ASTVisitor,
+} from 'graphql';
 import type { Context, Request, Response } from 'koa';
 import type { GraphQLParams, RequestInfo } from 'express-graphql';
 
@@ -38,7 +45,7 @@ export type OptionsData = {
   schema: GraphQLSchema,
 
   /**
-   * A value to pass as the context to the graphql() function.
+   * A value to pass as the context to this middleware.
    */
   context?: ?mixed,
 
@@ -57,13 +64,13 @@ export type OptionsData = {
    * fulfilling a GraphQL operation. If no function is provided, GraphQL's
    * default spec-compliant `formatError` function will be used.
    */
-  formatError?: ?(error: GraphQLError) => mixed,
+  formatError?: ?(error: GraphQLError, context?: ?any) => mixed,
 
   /**
    * An optional array of validation rules that will be applied on the document
    * in additional to those defined by the GraphQL spec.
    */
-  validationRules?: ?Array<mixed>,
+  validationRules?: ?Array<(ValidationContext) => ASTVisitor>,
 
   /**
    * An optional function for adding additional metadata to the GraphQL response
@@ -81,6 +88,13 @@ export type OptionsData = {
    * A boolean to optionally enable GraphiQL mode.
    */
   graphiql?: ?boolean,
+
+  /**
+   * A resolver function to use when one is not provided by the schema.
+   * If not provided, the default field resolver is used (which looks for a
+   * value or method on the source value with the field's name).
+   */
+  fieldResolver?: ?GraphQLFieldResolver<any, any>,
 };
 
 type Middleware = (ctx: Context) => Promise<void>;
@@ -105,6 +119,7 @@ function graphqlHTTP(options: Options): Middleware {
     let schema;
     let context;
     let rootValue;
+    let fieldResolver;
     let pretty;
     let graphiql;
     let formatErrorFn;
@@ -144,6 +159,7 @@ function graphqlHTTP(options: Options): Middleware {
       schema = optionsData.schema;
       context = optionsData.context || ctx;
       rootValue = optionsData.rootValue;
+      fieldResolver = optionsData.fieldResolver;
       pretty = optionsData.pretty;
       graphiql = optionsData.graphiql;
       formatErrorFn = optionsData.formatError;
@@ -180,6 +196,14 @@ function graphqlHTTP(options: Options): Middleware {
             return resolve(null);
           }
           throw httpError(400, 'Must provide query string.');
+        }
+
+        // Validate Schema
+        const schemaValidationErrors = validateSchema(schema);
+        if (schemaValidationErrors.length > 0) {
+          // Return 500: Internal Server Error if invalid schema.
+          response.status = 500;
+          return resolve({ errors: schemaValidationErrors });
         }
 
         // GraphQL source.
@@ -234,8 +258,10 @@ function graphqlHTTP(options: Options): Middleware {
               context,
               variables,
               operationName,
+              fieldResolver,
             ),
           );
+          response.status = 200;
         } catch (contextError) {
           // Return 400: Bad Request if any execution context errors exist.
           response.status = 400;
@@ -252,6 +278,7 @@ function graphqlHTTP(options: Options): Middleware {
             variables,
             operationName,
             result,
+            context,
           }),
         ).then(extensions => {
           if (extensions && typeof extensions === 'object') {
@@ -271,12 +298,14 @@ function graphqlHTTP(options: Options): Middleware {
     // Note: Information about the error itself will still be contained in
     // the resulting JSON payload.
     // http://facebook.github.io/graphql/#sec-Data
-    if (result && result.data === null) {
+    if (response.status === 200 && result && !result.data) {
       response.status = 500;
     }
     // Format any encountered errors.
     if (result && result.errors) {
-      (result: any).errors = result.errors.map(formatErrorFn || formatError);
+      (result: any).errors = result.errors.map(
+        err => (formatErrorFn ? formatErrorFn(err, context) : formatError(err)),
+      );
     }
 
     // If allowed to show GraphiQL, present it instead of JSON.

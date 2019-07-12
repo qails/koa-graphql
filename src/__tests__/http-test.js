@@ -1,7 +1,5 @@
-/* @flow */
+/* @flow strict */
 
-// 80+ char lines are useful in describe/it, so ignore in this file.
-/* eslint-disable max-len */
 /* eslint-disable callback-return */
 
 import { expect } from 'chai';
@@ -60,6 +58,9 @@ const QueryRootType = new GraphQLObjectType({
       resolve: (obj, args, context) => {
         return (context: any).foo;
       },
+    },
+    missingResolver: {
+      type: GraphQLString,
     },
   },
 });
@@ -238,7 +239,7 @@ describe('GraphQL-HTTP tests', () => {
         }),
       );
 
-      expect(response.status).to.equal(200);
+      expect(response.status).to.equal(500);
       expect(JSON.parse(response.text)).to.deep.equal({
         errors: [
           {
@@ -346,6 +347,39 @@ describe('GraphQL-HTTP tests', () => {
       expect(JSON.parse(response.text)).to.deep.equal({
         data: {
           context: 'testValue',
+        },
+      });
+    });
+
+    it('Allows passing in a fieldResolver', async () => {
+      const app = server();
+
+      app.use(
+        mount(
+          urlString(),
+          graphqlHTTP({
+            schema: TestSchema,
+            context: 'testValue',
+            fieldResolver() {
+              return 'fieldResolver data';
+            },
+          }),
+        ),
+      );
+
+      const response = await request(app.listen()).get(
+        urlString({
+          operationName: 'TestQuery',
+          query: `
+            query TestQuery { missingResolver }
+          `,
+        }),
+      );
+
+      expect(response.status).to.equal(200);
+      expect(JSON.parse(response.text)).to.deep.equal({
+        data: {
+          missingResolver: 'fieldResolver data',
         },
       });
     });
@@ -499,10 +533,12 @@ describe('GraphQL-HTTP tests', () => {
         ),
       );
 
-      const response = await request(app.listen()).post(urlString()).send({
-        query: 'query helloWho($who: String){ test(who: $who) }',
-        variables: JSON.stringify({ who: 'Dolly' }),
-      });
+      const response = await request(app.listen())
+        .post(urlString())
+        .send({
+          query: 'query helloWho($who: String){ test(who: $who) }',
+          variables: JSON.stringify({ who: 'Dolly' }),
+        });
 
       expect(response.text).to.equal('{"data":{"test":"Hello Dolly"}}');
     });
@@ -519,10 +555,12 @@ describe('GraphQL-HTTP tests', () => {
         ),
       );
 
-      const response = await request(app.listen()).post(urlString()).send({
-        query: 'query helloWho($who: String){ test(who: $who) }',
-        variables: { who: 'Dolly' },
-      });
+      const response = await request(app.listen())
+        .post(urlString())
+        .send({
+          query: 'query helloWho($who: String){ test(who: $who) }',
+          variables: { who: 'Dolly' },
+        });
 
       expect(response.text).to.equal('{"data":{"test":"Hello Dolly"}}');
     });
@@ -539,12 +577,14 @@ describe('GraphQL-HTTP tests', () => {
         ),
       );
 
-      const response = await request(app.listen()).post(urlString()).send(
-        stringify({
-          query: 'query helloWho($who: String){ test(who: $who) }',
-          variables: JSON.stringify({ who: 'Dolly' }),
-        }),
-      );
+      const response = await request(app.listen())
+        .post(urlString())
+        .send(
+          stringify({
+            query: 'query helloWho($who: String){ test(who: $who) }',
+            variables: JSON.stringify({ who: 'Dolly' }),
+          }),
+        );
 
       expect(response.text).to.equal('{"data":{"test":"Hello Dolly"}}');
     });
@@ -635,8 +675,10 @@ describe('GraphQL-HTTP tests', () => {
         ),
       );
 
-      const response = await request(app.listen()).post(urlString()).send({
-        query: `
+      const response = await request(app.listen())
+        .post(urlString())
+        .send({
+          query: `
             query helloYou { test(who: "You"), ...shared }
             query helloWorld { test(who: "World"), ...shared }
             query helloDolly { test(who: "Dolly"), ...shared }
@@ -644,8 +686,8 @@ describe('GraphQL-HTTP tests', () => {
               shared: test(who: "Everyone")
             }
           `,
-        operationName: 'helloWorld',
-      });
+          operationName: 'helloWorld',
+        });
 
       expect(JSON.parse(response.text)).to.deep.equal({
         data: {
@@ -1185,9 +1227,7 @@ describe('GraphQL-HTTP tests', () => {
       expect(JSON.parse(response.text)).to.deep.equal({
         errors: [
           {
-            message:
-              'Syntax Error GraphQL request (1:1) ' +
-              'Unexpected Name "syntaxerror"\n\n1: syntaxerror\n   ^\n',
+            message: 'Syntax Error: Unexpected Name "syntaxerror"',
             locations: [{ line: 1, column: 1 }],
           },
         ],
@@ -1378,6 +1418,69 @@ describe('GraphQL-HTTP tests', () => {
       expect(response.status).to.equal(400);
       expect(JSON.parse(response.text)).to.deep.equal({
         errors: [{ message: 'Variables are invalid JSON.' }],
+      });
+    });
+
+    it('allows for custom error formatting of poorly formed requests', async () => {
+      const app = server();
+
+      app.use(
+        mount(
+          urlString(),
+          graphqlHTTP({
+            schema: TestSchema,
+            formatError(error) {
+              return { message: 'Custom error format: ' + error.message };
+            },
+          }),
+        ),
+      );
+
+      const response = await request(app.listen()).get(
+        urlString({
+          variables: 'who:You',
+          query: 'query helloWho($who: String){ test(who: $who) }',
+        }),
+      );
+
+      expect(response.status).to.equal(400);
+      expect(JSON.parse(response.text)).to.deep.equal({
+        errors: [
+          {
+            message: 'Custom error format: Variables are invalid JSON.',
+          },
+        ],
+      });
+    });
+
+    it('handles invalid variables', async () => {
+      const app = server();
+
+      app.use(
+        mount(
+          urlString(),
+          graphqlHTTP({
+            schema: TestSchema,
+          }),
+        ),
+      );
+
+      const response = await request(app.listen())
+        .post(urlString())
+        .send({
+          query: 'query helloWho($who: String){ test(who: $who) }',
+          variables: { who: ['Dolly', 'Jonty'] },
+        });
+
+      expect(response.status).to.equal(500);
+      expect(JSON.parse(response.text)).to.deep.equal({
+        errors: [
+          {
+            locations: [{ column: 16, line: 1 }],
+            message:
+              'Variable "$who" got invalid value ["Dolly", "Jonty"]; Expected type String; String cannot represent a non string value: ["Dolly", "Jonty"]',
+          },
+        ],
       });
     });
 
@@ -1818,16 +1921,23 @@ describe('GraphQL-HTTP tests', () => {
     it('allows for adding extensions', async () => {
       const app = server();
 
+      const extensions = ({ context = {} }) => {
+        if (context !== null && typeof context.startTime === 'number') {
+          return {
+            runTime: 1000000010 /* Date.now() */ - context.startTime,
+          };
+        }
+        return {};
+      };
+
       app.use(
         mount(
           urlString(),
           graphqlHTTP(() => {
-            const startTime = 1000000000; /* Date.now(); */
             return {
               schema: TestSchema,
-              extensions() {
-                return { runTime: 1000000010 /* Date.now() */ - startTime };
-              },
+              context: { startTime: 1000000000 },
+              extensions,
             };
           }),
         ),

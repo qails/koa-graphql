@@ -1,4 +1,4 @@
-/* @flow */
+/* @flow strict */
 
 type GraphiQLData = {
   query: ?string,
@@ -8,7 +8,7 @@ type GraphiQLData = {
 };
 
 // Current latest version of GraphiQL.
-const GRAPHIQL_VERSION = '0.11.3';
+const GRAPHIQL_VERSION = '0.12.0';
 
 // Ensures string values are safe to be used within a <script> tag.
 function safeSerialize(data): string {
@@ -32,7 +32,6 @@ export function renderGraphiQL(data: GraphiQLData): string {
     : null;
   const operationName = data.operationName;
 
-  /* eslint-disable max-len */
   return `<!--
 The request to this GraphQL server provided the header "Accept: text/html"
 and as a result has been presented GraphiQL - an in-browser IDE for
@@ -46,21 +45,26 @@ add "&raw" to the end of the URL within a browser.
   <meta charset="utf-8" />
   <title>GraphiQL</title>
   <meta name="robots" content="noindex" />
+  <meta name="referrer" content="origin" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    html, body {
-      height: 100%;
+    body {
       margin: 0;
       overflow: hidden;
-      width: 100%;
+    }
+    #graphiql {
+      height: 100vh;
     }
   </style>
-  <link href="//m.qunar.com/zhuanti/graphiql-0.11.3.css" rel="stylesheet" />
+  <link href="//m.qunar.com/zhuanti/graphiql-${GRAPHIQL_VERSION}.css" rel="stylesheet" />
+  <script src="//m.qunar.com/zhuanti/es6-promise-4.0.5.min.js"></script>
   <script src="//m.qunar.com/zhuanti/fetch-0.9.0.min.js"></script>
   <script src="//m.qunar.com/zhuanti/react-15.4.2.min.js"></script>
   <script src="//m.qunar.com/zhuanti/react-dom-15.4.2.min.js"></script>
-  <script src="//m.qunar.com/zhuanti/graphiql-0.11.3.min.js"></script>
+  <script src="//m.qunar.com/zhuanti/graphiql-${GRAPHIQL_VERSION}.min.js"></script>
 </head>
 <body>
+  <div id="graphiql">Loading...</div>
   <script>
     // Collect the URL parameters
     var parameters = {};
@@ -104,13 +108,7 @@ add "&raw" to the end of the URL within a browser.
         body: JSON.stringify(graphQLParams),
         credentials: 'include',
       }).then(function (response) {
-        return response.text();
-      }).then(function (responseBody) {
-        try {
-          return JSON.parse(responseBody);
-        } catch (error) {
-          return responseBody;
-        }
+        return response.json();
       });
     }
 
@@ -147,7 +145,7 @@ add "&raw" to the end of the URL within a browser.
         variables: ${safeSerialize(variablesString)},
         operationName: ${safeSerialize(operationName)},
       }),
-      document.body
+      document.getElementById('graphiql')
     );
   </script>
 </body>
