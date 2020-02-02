@@ -25,7 +25,7 @@ export interface OptionsData {
     /**
      * endpoint
      */
-    endpoint: string;
+    endpoint?: string;
 
     /**
      * A GraphQL schema from graphql-js.
