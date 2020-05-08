@@ -23,7 +23,7 @@
     "api"
   ],
   "engines": {
-    "node": ">= 6.x"
+    "node": ">= 8.x"
   },
   "main": "dist/index.js",
   "directories": {
@@ -72,7 +72,7 @@
   },
   "dependencies": {
     "babel-runtime": "^6.26.0",
-    "express-graphql": "0.7.1",
+    "express-graphql": "0.9.0",
     "http-errors": "^1.7.1",
     "thenify": "^3.3.0"
   },
